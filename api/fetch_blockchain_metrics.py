@@ -1,4 +1,4 @@
-# api/fetch_blockchain_metrics.py
+# api/fetch_blockchain_metrics.py - ENHANCED VERSION
 
 import requests
 import pandas as pd
@@ -17,52 +17,68 @@ class BlockchainMetricsFetcher:
         self.blockchain_info_base = "https://api.blockchain.info"
         self.mempool_space_base = "https://mempool.space/api"
         
-    def fetch_blockchain_info_stats(self, days=365):
+    def fetch_blockchain_info_stats(self, days=1825):  # 5 years to match OHLCV
         """
         Fetches Bitcoin network statistics from Blockchain.info
         Completely free, no API key required.
+        Extended to 5 years (1825 days) to match OHLCV data.
         """
-        print("Fetching blockchain.info statistics...")
+        print(f"Fetching blockchain.info statistics ({days} days)...")
         
         try:
             # Market price (USD)
+            print("  → Fetching market price...")
             market_price_url = f"{self.blockchain_info_base}/charts/market-price?timespan={days}days&format=json"
-            response = requests.get(market_price_url, timeout=10)
+            response = requests.get(market_price_url, timeout=15)
             market_price_data = response.json()
+            time.sleep(1)  # Rate limiting
             
             # Hash rate
+            print("  → Fetching hash rate...")
             hash_rate_url = f"{self.blockchain_info_base}/charts/hash-rate?timespan={days}days&format=json"
-            response = requests.get(hash_rate_url, timeout=10)
+            response = requests.get(hash_rate_url, timeout=15)
             hash_rate_data = response.json()
+            time.sleep(1)
             
             # Difficulty
+            print("  → Fetching difficulty...")
             difficulty_url = f"{self.blockchain_info_base}/charts/difficulty?timespan={days}days&format=json"
-            response = requests.get(difficulty_url, timeout=10)
+            response = requests.get(difficulty_url, timeout=15)
             difficulty_data = response.json()
+            time.sleep(1)
             
             # Transaction count
+            print("  → Fetching transaction count...")
             tx_count_url = f"{self.blockchain_info_base}/charts/n-transactions?timespan={days}days&format=json"
-            response = requests.get(tx_count_url, timeout=10)
+            response = requests.get(tx_count_url, timeout=15)
             tx_count_data = response.json()
+            time.sleep(1)
             
             # Total transaction fees (BTC)
+            print("  → Fetching transaction fees...")
             tx_fees_url = f"{self.blockchain_info_base}/charts/transaction-fees?timespan={days}days&format=json"
-            response = requests.get(tx_fees_url, timeout=10)
+            response = requests.get(tx_fees_url, timeout=15)
             tx_fees_data = response.json()
+            time.sleep(1)
             
             # Average block size
+            print("  → Fetching block size...")
             block_size_url = f"{self.blockchain_info_base}/charts/avg-block-size?timespan={days}days&format=json"
-            response = requests.get(block_size_url, timeout=10)
+            response = requests.get(block_size_url, timeout=15)
             block_size_data = response.json()
+            time.sleep(1)
             
             # Mempool size
+            print("  → Fetching mempool size...")
             mempool_size_url = f"{self.blockchain_info_base}/charts/mempool-size?timespan={days}days&format=json"
-            response = requests.get(mempool_size_url, timeout=10)
+            response = requests.get(mempool_size_url, timeout=15)
             mempool_size_data = response.json()
+            time.sleep(1)
             
             # Total bitcoins in circulation
+            print("  → Fetching total BTC supply...")
             total_btc_url = f"{self.blockchain_info_base}/charts/total-bitcoins?timespan={days}days&format=json"
-            response = requests.get(total_btc_url, timeout=10)
+            response = requests.get(total_btc_url, timeout=15)
             total_btc_data = response.json()
             
             print(f"✅ Successfully fetched blockchain.info metrics")
@@ -79,7 +95,7 @@ class BlockchainMetricsFetcher:
             }
             
         except Exception as e:
-            print(f"Error fetching blockchain.info data: {e}")
+            print(f"❌ Error fetching blockchain.info data: {e}")
             return None
     
     def fetch_mempool_space_stats(self):
@@ -119,7 +135,7 @@ class BlockchainMetricsFetcher:
             }
             
         except Exception as e:
-            print(f"Error fetching mempool.space data: {e}")
+            print(f"❌ Error fetching mempool.space data: {e}")
             return None
     
     def combine_to_dataframe(self, blockchain_data):
@@ -158,7 +174,7 @@ class BlockchainMetricsFetcher:
         
         # Sort by date and forward fill missing values
         df.sort_index(inplace=True)
-        df.fillna(method='ffill', inplace=True)
+        df.ffill(inplace=True)  # FIXED: Use ffill() instead of fillna(method='ffill')
         
         return df
     
@@ -174,14 +190,15 @@ class BlockchainMetricsFetcher:
         print(f"\n✅ Blockchain metrics saved to {full_path}")
         print(f"Total rows: {len(df)}")
         print(f"Date range: {df.index.min()} to {df.index.max()}")
+        print(f"Duration: {(df.index.max() - df.index.min()).days} days")
         print(f"\nColumns: {list(df.columns)}")
 
 def main():
     """Main execution function."""
     fetcher = BlockchainMetricsFetcher()
     
-    # Fetch blockchain metrics (last 2 years)
-    blockchain_data = fetcher.fetch_blockchain_info_stats(days=730)
+    # Fetch blockchain metrics (last 5 years to match OHLCV)
+    blockchain_data = fetcher.fetch_blockchain_info_stats(days=1825)
     
     if blockchain_data:
         df = fetcher.combine_to_dataframe(blockchain_data)

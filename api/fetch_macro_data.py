@@ -1,50 +1,50 @@
-# api/fetch_macro_data.py
+# api/fetch_macro_data.py - FIXED API KEY HANDLING
 
 import requests
 import pandas as pd
 import os
-from datetime import datetime, timedelta
+from datetime import datetime
 
 # --- Configuration ---
 OUTPUT_DIR = 'data/raw'
 OUTPUT_FILE = 'macro_indicators.csv'
 
-# FRED API - Free but requires registration for API key
-# Get your free API key at: https://fred.stlouisfed.org/docs/api/api_key.html
-FRED_API_KEY = '99b1e3b0816299e5fe8ddac476442843'  # Replace with your key
+# FRED API - OPTIONAL (get free key at https://fred.stlouisfed.org/docs/api/api_key.html)
+FRED_API_KEY = os.environ.get('FRED_API_KEY', None)  # Read from environment variable
 FRED_BASE_URL = 'https://api.stlouisfed.org/fred/series/observations'
 
 class MacroDataFetcher:
     """
-    Fetches macroeconomic indicators that influence Bitcoin prices.
-    Uses FRED (Federal Reserve Economic Data) - Free API with registration.
+    Fetches macroeconomic indicators from multiple FREE sources.
+    
+    Priority:
+    1. Yahoo Finance (NO API KEY REQUIRED) - Primary source
+    2. FRED (OPTIONAL - Better data, requires free API key)
+    3. Alternative forex data (NO API KEY REQUIRED)
     """
     
     def __init__(self, api_key=None):
         self.api_key = api_key or FRED_API_KEY
+        self.use_fred = bool(self.api_key and self.api_key != '99b1e3b0816299e5fe8ddac476442843')
         
-        if self.api_key == '99b1e3b0816299e5fe8ddac476442843':
-            print("⚠️  WARNING: Please set your FRED API key!")
-            print("Get a free key at: https://fred.stlouisfed.org/docs/api/api_key.html")
-            self.use_alternative = True
-        else:
-            self.use_alternative = False
+        if not self.use_fred:
+            print("\n" + "="*60)
+            print("ℹ️  FRED API KEY NOT SET (Using Yahoo Finance only)")
+            print("="*60)
+            print("Yahoo Finance provides 5 essential indicators:")
+            print("  ✅ S&P 500, NASDAQ, DXY, GOLD, VIX")
+            print("\nTo get MORE indicators (optional):")
+            print("  1. Get free key: https://fred.stlouisfed.org/docs/api/api_key.html")
+            print("  2. Set environment variable:")
+            print("     Linux/Mac: export FRED_API_KEY='99b1e3b0816299e5fe8ddac476442843'")
+            print("     Windows: set FRED_API_KEY=99b1e3b0816299e5fe8ddac476442843")
+            print("  3. Or edit this file and set FRED_API_KEY at top")
+            print("="*60 + "\n")
     
     def fetch_fred_series(self, series_id, start_date='2020-01-01'):
-        """
-        Fetches a single economic time series from FRED.
+        """Fetches data from FRED (only if API key is set)."""
         
-        Popular series for Bitcoin analysis:
-        - DFF: Federal Funds Rate
-        - T10Y2Y: 10-Year Treasury Constant Maturity Minus 2-Year
-        - DEXUSEU: U.S. Dollar to Euro Exchange Rate
-        - DGS10: 10-Year Treasury Constant Maturity Rate
-        - VIXCLS: CBOE Volatility Index (VIX)
-        - DCOILWTICO: Crude Oil Prices (WTI)
-        - GOLDAMGBD228NLBM: Gold Fixing Price
-        """
-        
-        if self.use_alternative:
+        if not self.use_fred:
             return None
         
         try:
@@ -59,10 +59,9 @@ class MacroDataFetcher:
             data = response.json()
             
             if 'observations' not in data:
-                print(f"Error fetching {series_id}: {data}")
+                print(f"⚠️  FRED Error for {series_id}: {data.get('error_message', 'Unknown error')}")
                 return None
             
-            # Convert to DataFrame
             df = pd.DataFrame(data['observations'])
             df = df[['date', 'value']]
             df.columns = ['date', series_id]
@@ -70,19 +69,64 @@ class MacroDataFetcher:
             df[series_id] = pd.to_numeric(df[series_id], errors='coerce')
             df.set_index('date', inplace=True)
             
-            print(f"✅ Fetched {series_id}: {len(df)} observations")
+            print(f"✅ Fetched FRED {series_id}: {len(df)} observations")
             return df
             
         except Exception as e:
-            print(f"Error fetching FRED series {series_id}: {e}")
+            print(f"⚠️  Error fetching FRED {series_id}: {e}")
+            return None
+    
+    def fetch_yahoo_finance_indices(self):
+        """
+        Fetches major market indices from Yahoo Finance.
+        FREE - NO API KEY REQUIRED!
+        """
+        try:
+            import yfinance as yf
+            
+            print("="*60)
+            print("Fetching stock market indices...")
+            print("="*60)
+            
+            indices = {
+                'SP500': '^GSPC',
+                'NASDAQ': '^IXIC',
+                'DXY': 'DX-Y.NYB',
+                'GOLD': 'GC=F',
+                'VIX': '^VIX'
+            }
+            
+            dfs = []
+            for name, ticker in indices.items():
+                try:
+                    data = yf.download(ticker, start='2020-01-01', progress=False)
+                    if not data.empty:
+                        df = data[['Close']].copy()
+                        df.columns = [name]
+                        dfs.append(df)
+                        print(f"✅ Fetched {name}")
+                    else:
+                        print(f"⚠️  No data for {name}")
+                except Exception as e:
+                    print(f"⚠️  Could not fetch {name}: {e}")
+            
+            if dfs:
+                combined = pd.concat(dfs, axis=1)
+                print(f"\n✅ Yahoo Finance: {combined.shape[1]} indicators, {len(combined)} days")
+                return combined
+            
+            return None
+            
+        except ImportError:
+            print("\n❌ ERROR: yfinance not installed")
+            print("Install it with: pip install yfinance")
+            return None
+        except Exception as e:
+            print(f"❌ Error fetching Yahoo Finance data: {e}")
             return None
     
     def fetch_alternative_forex(self):
-        """
-        Fetches forex data from a free source (exchangerate-api.com).
-        No API key required for basic usage.
-        """
-        print("Fetching alternative forex data...")
+        """Fetches current forex rates (FREE, no API key)."""
         
         try:
             url = "https://api.exchangerate-api.com/v4/latest/USD"
@@ -100,65 +144,24 @@ class MacroDataFetcher:
             return None
             
         except Exception as e:
-            print(f"Error fetching forex data: {e}")
-            return None
-    
-    def fetch_yahoo_finance_indices(self):
-        """
-        Alternative method using yfinance library for stock indices.
-        Free and no API key required.
-        Note: Requires 'pip install yfinance'
-        """
-        try:
-            import yfinance as yf
-            
-            print("Fetching stock market indices...")
-            
-            # Major indices
-            indices = {
-                'SP500': '^GSPC',      # S&P 500
-                'NASDAQ': '^IXIC',     # NASDAQ Composite
-                'DXY': 'DX-Y.NYB',     # US Dollar Index
-                'GOLD': 'GC=F',        # Gold Futures
-                'VIX': '^VIX'          # Volatility Index
-            }
-            
-            dfs = []
-            for name, ticker in indices.items():
-                try:
-                    data = yf.download(ticker, start='2020-01-01', progress=False)
-                    if not data.empty:
-                        df = data[['Close']].copy()
-                        df.columns = [name]
-                        dfs.append(df)
-                        print(f"✅ Fetched {name}")
-                except Exception as e:
-                    print(f"Could not fetch {name}: {e}")
-            
-            if dfs:
-                combined = pd.concat(dfs, axis=1)
-                return combined
-            return None
-            
-        except ImportError:
-            print("yfinance not installed. Run: pip install yfinance")
-            return None
-        except Exception as e:
-            print(f"Error fetching Yahoo Finance data: {e}")
+            print(f"⚠️  Error fetching forex: {e}")
             return None
     
     def fetch_all_macro_data(self):
-        """Fetches all macroeconomic indicators."""
+        """Fetches all available macroeconomic data."""
         
         all_data = []
         
-        if not self.use_alternative:
-            # FRED Series to fetch
+        # 1. FRED data (if API key available)
+        if self.use_fred:
+            print("\n" + "="*60)
+            print("Fetching FRED economic data...")
+            print("="*60)
+            
             fred_series = {
                 'fed_funds_rate': 'DFF',
                 'treasury_10y': 'DGS10',
                 'treasury_2y': 'DGS2',
-                'vix': 'VIXCLS',
                 'oil_wti': 'DCOILWTICO',
                 'gold_price': 'GOLDAMGBD228NLBM',
                 'usd_eur': 'DEXUSEU'
@@ -170,26 +173,28 @@ class MacroDataFetcher:
                     df.columns = [name]
                     all_data.append(df)
         
-        # Fetch Yahoo Finance data (works without FRED API)
+        # 2. Yahoo Finance (ALWAYS fetch - no API key needed)
         yahoo_data = self.fetch_yahoo_finance_indices()
         if yahoo_data is not None:
             all_data.append(yahoo_data)
         
         if not all_data:
-            print("No macro data fetched successfully")
+            print("\n❌ No macro data fetched")
             return None
         
-        # Combine all dataframes
+        # Combine all sources
         combined_df = pd.concat(all_data, axis=1)
         combined_df.sort_index(inplace=True)
         
-        # Forward fill missing values (for different trading days)
-        combined_df.fillna(method='ffill', inplace=True)
+        # Forward fill missing values
+        combined_df = combined_df.ffill()
         
+        print(f"\n✅ Combined macro data: {combined_df.shape}")
         return combined_df
     
     def save_data(self, df):
-        """Saves the macro data to CSV."""
+        """Saves macro data to CSV."""
+        
         if df is None:
             return
         
@@ -203,31 +208,30 @@ class MacroDataFetcher:
         print(f"Columns: {list(df.columns)}")
 
 def main():
-    """Main execution function."""
+    """Main execution."""
     
-    # Try to read API key from environment variable
-    api_key = os.environ.get('FRED_API_KEY', FRED_API_KEY)
+    fetcher = MacroDataFetcher()
     
-    fetcher = MacroDataFetcher(api_key=api_key)
-    
-    print("Fetching macroeconomic indicators...")
-    print("="*50)
+    print("\nFetching macroeconomic indicators...")
+    print("="*60)
     
     macro_df = fetcher.fetch_all_macro_data()
     
     if macro_df is not None:
         fetcher.save_data(macro_df)
         
-        # Display current values
-        print("\n" + "="*50)
+        # Display latest values
+        print("\n" + "="*60)
         print("LATEST MACRO INDICATORS")
-        print("="*50)
-        print(macro_df.tail(1).T)
+        print("="*60)
+        latest = macro_df.tail(1).T
+        latest.columns = ['Value']
+        print(latest.to_string())
     
     # Fetch current forex rates
-    print("\n" + "="*50)
+    print("\n" + "="*60)
     print("CURRENT FOREX RATES")
-    print("="*50)
+    print("="*60)
     forex = fetcher.fetch_alternative_forex()
     if forex:
         for key, value in forex.items():
