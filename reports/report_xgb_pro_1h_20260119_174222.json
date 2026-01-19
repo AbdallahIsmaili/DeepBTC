@@ -1,0 +1,95 @@
+{
+  "model_type": "XGBoost Professional",
+  "training_date": "2026-01-19T17:42:22.820616",
+  "prediction_horizon": 1,
+  "target_threshold": 0.002,
+  "data_info": {
+    "total_samples": 51443,
+    "features_count": 94,
+    "class_distribution": {
+      "0": 36483,
+      "1": 14960
+    },
+    "class_ratio": 0.41005399775237783
+  },
+  "model_params": {
+    "objective": "binary:logistic",
+    "eval_metric": [
+      "auc",
+      "logloss"
+    ],
+    "max_depth": 3,
+    "min_child_weight": 10,
+    "learning_rate": 0.05,
+    "n_estimators": 200,
+    "gamma": 0.1,
+    "reg_alpha": 0.1,
+    "reg_lambda": 1.0,
+    "subsample": 0.8,
+    "colsample_bytree": 0.8,
+    "scale_pos_weight": 2.4387032085561495,
+    "random_state": 42,
+    "early_stopping_rounds": 20,
+    "verbose": 0
+  },
+  "temporal_validation_results": [
+    {
+      "fold": 1,
+      "accuracy": 1.0,
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1": 1.0,
+      "auc": 1.0,
+      "best_iteration": 132
+    },
+    {
+      "fold": 2,
+      "accuracy": 1.0,
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1": 1.0,
+      "auc": 1.0,
+      "best_iteration": 126
+    },
+    {
+      "fold": 3,
+      "accuracy": 1.0,
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1": 1.0,
+      "auc": 1.0,
+      "best_iteration": 135
+    },
+    {
+      "fold": 4,
+      "accuracy": 1.0,
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1": 1.0,
+      "auc": 1.0,
+      "best_iteration": 143
+    },
+    {
+      "fold": 5,
+      "accuracy": 1.0,
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1": 1.0,
+      "auc": 1.0,
+      "best_iteration": 163
+    }
+  ],
+  "average_metrics": {
+    "accuracy": 1.0,
+    "precision": 1.0,
+    "recall": 1.0,
+    "f1": 1.0,
+    "auc": 1.0
+  },
+  "best_fold": 1,
+  "files": {
+    "model": "c:\\Users\\15086\\Documents\\GitHub\\DeepBTC\\models\\xgboost_pro_1h_20260119_174222.json",
+    "scaler": "c:\\Users\\15086\\Documents\\GitHub\\DeepBTC\\models\\scaler_xgb_1h_20260119_174222.pkl",
+    "features": "c:\\Users\\15086\\Documents\\GitHub\\DeepBTC\\models\\features_xgb_1h_20260119_174222.txt"
+  }
+}

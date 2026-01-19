@@ -1,0 +1,95 @@
+{
+  "model_type": "Naive Bayes Professional (GaussianNB)",
+  "training_date": "2026-01-19T18:06:18.511902",
+  "configuration": {
+    "prediction_horizon": 1,
+    "target_threshold": 0.002,
+    "features_count": 50
+  },
+  "data_info": {
+    "total_samples": 51443,
+    "train_samples": 36011,
+    "val_samples": 7716,
+    "test_samples": 7716,
+    "class_distribution": [
+      25301,
+      10710
+    ]
+  },
+  "model_comparison": {
+    "GaussianNB": {
+      "best_params": {},
+      "cv_score": 0.8174304282619562,
+      "test_accuracy": 0.8758424053913945,
+      "test_auc": 0.9793811657070859,
+      "test_f1": 0.6949044585987261
+    },
+    "MultinomialNB": {
+      "best_params": {
+        "classifier__alpha": 0.1
+      },
+      "cv_score": 0.7638393601066488,
+      "test_accuracy": 0.744945567651633,
+      "test_auc": 0.9160415030482465,
+      "test_f1": 0.004048582995951417
+    },
+    "ComplementNB": {
+      "best_params": {
+        "classifier__alpha": 0.1,
+        "classifier__norm": true
+      },
+      "cv_score": 0.7554074320946509,
+      "test_accuracy": 0.7474079834110938,
+      "test_auc": 0.9158800328555206,
+      "test_f1": 0.02305764411027569
+    },
+    "BernoulliNB": {
+      "best_params": {
+        "classifier__alpha": 1.0,
+        "classifier__binarize": 0.5
+      },
+      "cv_score": 0.8247958673554407,
+      "test_accuracy": 0.7952306894764126,
+      "test_auc": 0.8790205548288859,
+      "test_f1": 0.6252371916508539
+    }
+  },
+  "best_model": {
+    "name": "GaussianNB",
+    "params": {},
+    "cv_score": 0.8174304282619562,
+    "final_metrics": {
+      "accuracy": 0.8758424053913945,
+      "precision": 0.9340753424657534,
+      "recall": 0.5532454361054767,
+      "f1": 0.6949044585987261,
+      "auc": 0.9793811657070859,
+      "brier_score": 0.1038395545104868,
+      "brier_score_calibrated": 0.01929750272344175
+    }
+  },
+  "feature_engineering": {
+    "transformations": [
+      "log_transform",
+      "sqrt_transform",
+      "discretization",
+      "binary_features"
+    ],
+    "technical_indicators": [
+      "rsi_levels",
+      "macd_signals",
+      "momentum_binary"
+    ],
+    "max_features": 50,
+    "selection_method": "correlation_with_target"
+  },
+  "calibration": {
+    "method": "isotonic",
+    "improvement": 0.08454205178704506
+  },
+  "files": {
+    "model": "c:\\Users\\15086\\Documents\\GitHub\\DeepBTC\\models\\naive_bayes_pro_1h_20260119_180618.pkl",
+    "calibrated_model": "c:\\Users\\15086\\Documents\\GitHub\\DeepBTC\\models\\naive_bayes_calibrated_pro_1h_20260119_180618.pkl",
+    "features": "c:\\Users\\15086\\Documents\\GitHub\\DeepBTC\\models\\features_naive_bayes_1h_20260119_180618.txt"
+  }
+}
