@@ -1,0 +1,88 @@
+"""
+Script to complete ALL notebooks with full implementations
+Adds missing blocks: data loading, preprocessing, training, evaluation, visualizations
+"""
+import json
+import os
+
+def create_notebook(cells):
+    return {
+        "cells": cells,
+        "metadata": {
+            "kernelspec": {"display_name": "Python 3", "language": "python", "name": "python3"},
+            "language_info": {"name": "python", "version": "3.8.10"}
+        },
+        "nbformat": 4,
+        "nbformat_minor": 5
+    }
+
+def save_notebook(notebook, filename):
+    path = os.path.join(r"C:\Users\15086\Documents\GitHub\DeepBTC\notebooks", filename)
+    with open(path, 'w', encoding='utf-8') as f:
+        json.dump(notebook, f, indent=2, ensure_ascii=False)
+    print(f"✅ {filename}")
+
+# ============================================================================
+# COMPLETE GRU NOTEBOOK
+# ============================================================================
+gru_cells = [
+    {"cell_type": "markdown", "metadata": {}, "source": ["# BTC Oracle: GRU Model\n\n**GRU (Gated Recurrent Unit)** - Faster alternative to LSTM with similar performance"]},
+    {"cell_type": "code", "execution_count": None, "metadata": {}, "outputs": [], "source": ["import kagglehub\nimport pandas as pd\nimport numpy as np\nimport tensorflow as tf\nfrom sklearn.preprocessing import RobustScaler\nfrom sklearn.metrics import classification_report, confusion_matrix\nimport matplotlib.pyplot as plt\nimport seaborn as sns\n\nsns.set_style('whitegrid')\nplt.rcParams['figure.figsize'] = (14, 6)\nprint(f'TensorFlow: {tf.__version__}')"]},
+    {"cell_type": "markdown", "metadata": {}, "source": ["## 1. Load Data"]},
+    {"cell_type": "code", "execution_count": None, "metadata": {}, "outputs": [], "source": ["path = kagglehub.dataset_download('oussamataghlaoui/btc-oracle-on-chain-sentiment-and-macro-data')\nimport glob\ncsv_files = glob.glob(path + '/*.csv')\ndf = pd.read_csv(csv_files[0], parse_dates=['Datetime'], index_col='Datetime')\nprint(f'Shape: {df.shape}')"]},
+    {"cell_type": "markdown", "metadata": {}, "source": ["## 2. Prepare Data"]},
+    {"cell_type": "code", "execution_count": None, "metadata": {}, "outputs": [], "source": ["# Create target\ndef create_target(df, percentile=60):\n    returns = df['future_return_24h']\n    up = np.percentile(returns.dropna(), percentile)\n    down = np.percentile(returns.dropna(), 100-percentile)\n    target = pd.Series(1, index=returns.index)\n    target[returns > up] = 2\n    target[returns < down] = 0\n    return target.dropna()\n\ndf_clean = df.dropna(subset=['future_return_24h']).copy()\ny = create_target(df_clean)\nprint(f'Classes: {y.value_counts()}')\n\n# Features\nfeature_cols = [c for c in df_clean.columns if 'future' not in c and 'target' not in c]\nfeature_cols = [c for c in feature_cols if pd.api.types.is_numeric_dtype(df_clean[c])]\nX = df_clean[feature_cols].replace([np.inf, -np.inf], np.nan)\nprint(f'Features: {len(feature_cols)}')"]},
+    {"cell_type": "code", "execution_count": None, "metadata": {}, "outputs": [], "source": ["# Split\ntrain_size = int(len(X) * 0.7)\nval_size = int(len(X) * 0.15)\n\nX_train = X.iloc[:train_size]\nX_val = X.iloc[train_size:train_size+val_size]\nX_test = X.iloc[train_size+val_size:]\n\ny_train = y.iloc[:train_size]\ny_val = y.iloc[train_size:train_size+val_size]\ny_test = y.iloc[train_size+val_size:]\n\n# Scale\nmedians = X_train.median()\nX_train = X_train.fillna(medians)\nX_val = X_val.fillna(medians)\nX_test = X_test.fillna(medians)\n\nscaler = RobustScaler()\nX_train_scaled = scaler.fit_transform(X_train)\nX_val_scaled = scaler.transform(X_val)\nX_test_scaled = scaler.transform(X_test)\n\nprint(f'Train: {X_train_scaled.shape}')"]},
+    {"cell_type": "markdown", "metadata": {}, "source": ["## 3. Create Sequences"]},
+    {"cell_type": "code", "execution_count": None, "metadata": {}, "outputs": [], "source": ["def create_sequences(X, y, seq_len=48):\n    Xs, ys = [], []\n    for i in range(len(X) - seq_len):\n        Xs.append(X[i:i+seq_len])\n        ys.append(y.iloc[i+seq_len])\n    return np.array(Xs), np.array(ys)\n\nX_train_seq, y_train_seq = create_sequences(X_train_scaled, y_train)\nX_val_seq, y_val_seq = create_sequences(X_val_scaled, y_val)\nX_test_seq, y_test_seq = create_sequences(X_test_scaled, y_test)\n\nprint(f'Train sequences: {X_train_seq.shape}')"]},
+    {"cell_type": "markdown", "metadata": {}, "source": ["## 4. Build GRU Model"]},
+    {"cell_type": "code", "execution_count": None, "metadata": {}, "outputs": [], "source": ["model = tf.keras.Sequential([\n    tf.keras.layers.Bidirectional(tf.keras.layers.GRU(64, return_sequences=True), input_shape=(48, X_train_seq.shape[2])),\n    tf.keras.layers.Dropout(0.3),\n    tf.keras.layers.Bidirectional(tf.keras.layers.GRU(32)),\n    tf.keras.layers.Dropout(0.3),\n    tf.keras.layers.Dense(32, activation='relu'),\n    tf.keras.layers.Dense(3, activation='softmax')\n])\n\nmodel.compile(optimizer='adam', loss='sparse_categorical_crossentropy', metrics=['accuracy'])\nmodel.summary()"]},
+    {"cell_type": "markdown", "metadata": {}, "source": ["## 5. Train"]},
+    {"cell_type": "code", "execution_count": None, "metadata": {}, "outputs": [], "source": ["early_stop = tf.keras.callbacks.EarlyStopping(monitor='val_loss', patience=10, restore_best_weights=True)\n\nhistory = model.fit(\n    X_train_seq, y_train_seq,\n    validation_data=(X_val_seq, y_val_seq),\n    epochs=50,\n    batch_size=32,\n    callbacks=[early_stop],\n    verbose=1\n)"]},
+    {"cell_type": "markdown", "metadata": {}, "source": ["## 6. Evaluate"]},
+    {"cell_type": "code", "execution_count": None, "metadata": {}, "outputs": [], "source": ["# Curves\nfig, (ax1, ax2) = plt.subplots(1, 2, figsize=(14, 5))\nax1.plot(history.history['loss'], label='Train')\nax1.plot(history.history['val_loss'], label='Val')\nax1.set_title('Loss')\nax1.legend()\n\nax2.plot(history.history['accuracy'], label='Train')\nax2.plot(history.history['val_accuracy'], label='Val')\nax2.set_title('Accuracy')\nax2.legend()\nplt.show()"]},
+    {"cell_type": "code", "execution_count": None, "metadata": {}, "outputs": [], "source": ["# Predictions\ny_prob = model.predict(X_test_seq)\ny_pred = np.argmax(y_prob, axis=1)\ny_conf = np.max(y_prob, axis=1)\n\nprint('--- Standard Report ---')\nprint(classification_report(y_test_seq, y_pred, target_names=['DOWN', 'NEUTRAL', 'UP']))\n\n# High Confidence\nhc_mask = y_conf >= 0.75\nif np.sum(hc_mask) > 0:\n    print(f'\\n--- High Confidence (>75%) ---')\n    print(f'Coverage: {np.sum(hc_mask)/len(y_test_seq):.1%}')\n    print(classification_report(y_test_seq[hc_mask], y_pred[hc_mask], target_names=['DOWN', 'NEUTRAL', 'UP']))\n    \n    plt.figure(figsize=(6, 5))\n    sns.heatmap(confusion_matrix(y_test_seq[hc_mask], y_pred[hc_mask]), annot=True, fmt='d', cmap='Blues')\n    plt.title('High Confidence Confusion Matrix')\n    plt.show()"]},
+    {"cell_type": "markdown", "metadata": {}, "source": ["## 7. Save"]},
+    {"cell_type": "code", "execution_count": None, "metadata": {}, "outputs": [], "source": ["model.save('../models/gru_model.keras')\nprint('✓ Saved')"]},
+]
+
+save_notebook(create_notebook(gru_cells), "BTC_Oracle_GRU.ipynb")
+
+# ============================================================================
+# COMPLETE CNN-LSTM NOTEBOOK
+# ============================================================================
+cnn_lstm_cells = [
+    {"cell_type": "markdown", "metadata": {}, "source": ["# BTC Oracle: CNN-LSTM Hybrid\n\n**CNN** extracts local patterns + **LSTM** captures temporal dependencies"]},
+    {"cell_type": "code", "execution_count": None, "metadata": {}, "outputs": [], "source": ["import kagglehub\nimport pandas as pd\nimport numpy as np\nimport tensorflow as tf\nfrom sklearn.preprocessing import RobustScaler\nfrom sklearn.metrics import classification_report, confusion_matrix\nimport matplotlib.pyplot as plt\nimport seaborn as sns\n\nsns.set_style('whitegrid')\nplt.rcParams['figure.figsize'] = (14, 6)\nprint(f'TensorFlow: {tf.__version__}')"]},
+    {"cell_type": "markdown", "metadata": {}, "source": ["## 1. Load Data"]},
+    {"cell_type": "code", "execution_count": None, "metadata": {}, "outputs": [], "source": ["path = kagglehub.dataset_download('oussamataghlaoui/btc-oracle-on-chain-sentiment-and-macro-data')\nimport glob\ncsv_files = glob.glob(path + '/*.csv')\ndf = pd.read_csv(csv_files[0], parse_dates=['Datetime'], index_col='Datetime')\nprint(f'Shape: {df.shape}')"]},
+    {"cell_type": "markdown", "metadata": {}, "source": ["## 2. Prepare Data (Same as GRU)"]},
+    {"cell_type": "code", "execution_count": None, "metadata": {}, "outputs": [], "source": ["# Create target\ndef create_target(df, percentile=60):\n    returns = df['future_return_24h']\n    up = np.percentile(returns.dropna(), percentile)\n    down = np.percentile(returns.dropna(), 100-percentile)\n    target = pd.Series(1, index=returns.index)\n    target[returns > up] = 2\n    target[returns < down] = 0\n    return target.dropna()\n\ndf_clean = df.dropna(subset=['future_return_24h']).copy()\ny = create_target(df_clean)\n\n# Features\nfeature_cols = [c for c in df_clean.columns if 'future' not in c and 'target' not in c]\nfeature_cols = [c for c in feature_cols if pd.api.types.is_numeric_dtype(df_clean[c])]\nX = df_clean[feature_cols].replace([np.inf, -np.inf], np.nan)\n\n# Split & Scale\ntrain_size = int(len(X) * 0.7)\nval_size = int(len(X) * 0.15)\n\nX_train = X.iloc[:train_size].fillna(X.iloc[:train_size].median())\nX_val = X.iloc[train_size:train_size+val_size].fillna(X.iloc[:train_size].median())\nX_test = X.iloc[train_size+val_size:].fillna(X.iloc[:train_size].median())\n\ny_train = y.iloc[:train_size]\ny_val = y.iloc[train_size:train_size+val_size]\ny_test = y.iloc[train_size+val_size:]\n\nscaler = RobustScaler()\nX_train_scaled = scaler.fit_transform(X_train)\nX_val_scaled = scaler.transform(X_val)\nX_test_scaled = scaler.transform(X_test)\n\n# Sequences\ndef create_sequences(X, y, seq_len=48):\n    Xs, ys = [], []\n    for i in range(len(X) - seq_len):\n        Xs.append(X[i:i+seq_len])\n        ys.append(y.iloc[i+seq_len])\n    return np.array(Xs), np.array(ys)\n\nX_train_seq, y_train_seq = create_sequences(X_train_scaled, y_train)\nX_val_seq, y_val_seq = create_sequences(X_val_scaled, y_val)\nX_test_seq, y_test_seq = create_sequences(X_test_scaled, y_test)\n\nprint(f'Train: {X_train_seq.shape}')"]},
+    {"cell_type": "markdown", "metadata": {}, "source": ["## 3. Build CNN-LSTM Model"]},
+    {"cell_type": "code", "execution_count": None, "metadata": {}, "outputs": [], "source": ["model = tf.keras.Sequential([\n    # CNN layers\n    tf.keras.layers.Conv1D(filters=64, kernel_size=3, activation='relu', input_shape=(48, X_train_seq.shape[2])),\n    tf.keras.layers.MaxPooling1D(pool_size=2),\n    tf.keras.layers.Conv1D(filters=32, kernel_size=3, activation='relu'),\n    tf.keras.layers.MaxPooling1D(pool_size=2),\n    \n    # LSTM layers\n    tf.keras.layers.LSTM(50, return_sequences=True),\n    tf.keras.layers.Dropout(0.3),\n    tf.keras.layers.LSTM(25),\n    tf.keras.layers.Dropout(0.3),\n    \n    # Output\n    tf.keras.layers.Dense(32, activation='relu'),\n    tf.keras.layers.Dense(3, activation='softmax')\n])\n\nmodel.compile(optimizer='adam', loss='sparse_categorical_crossentropy', metrics=['accuracy'])\nmodel.summary()"]},
+    {"cell_type": "markdown", "metadata": {}, "source": ["## 4. Train"]},
+    {"cell_type": "code", "execution_count": None, "metadata": {}, "outputs": [], "source": ["early_stop = tf.keras.callbacks.EarlyStopping(monitor='val_loss', patience=10, restore_best_weights=True)\n\nhistory = model.fit(\n    X_train_seq, y_train_seq,\n    validation_data=(X_val_seq, y_val_seq),\n    epochs=50,\n    batch_size=32,\n    callbacks=[early_stop],\n    verbose=1\n)"]},
+    {"cell_type": "markdown", "metadata": {}, "source": ["## 5. Evaluate"]},
+    {"cell_type": "code", "execution_count": None, "metadata": {}, "outputs": [], "source": ["# Curves\nfig, (ax1, ax2) = plt.subplots(1, 2, figsize=(14, 5))\nax1.plot(history.history['loss'], label='Train')\nax1.plot(history.history['val_loss'], label='Val')\nax1.set_title('Loss')\nax1.legend()\n\nax2.plot(history.history['accuracy'], label='Train')\nax2.plot(history.history['val_accuracy'], label='Val')\nax2.set_title('Accuracy')\nax2.legend()\nplt.show()"]},
+    {"cell_type": "code", "execution_count": None, "metadata": {}, "outputs": [], "source": ["# Predictions\ny_prob = model.predict(X_test_seq)\ny_pred = np.argmax(y_prob, axis=1)\ny_conf = np.max(y_prob, axis=1)\n\nprint('--- Standard Report ---')\nprint(classification_report(y_test_seq, y_pred, target_names=['DOWN', 'NEUTRAL', 'UP']))\n\n# High Confidence\nhc_mask = y_conf >= 0.75\nif np.sum(hc_mask) > 0:\n    print(f'\\n--- High Confidence (>75%) ---')\n    print(f'Coverage: {np.sum(hc_mask)/len(y_test_seq):.1%}')\n    print(classification_report(y_test_seq[hc_mask], y_pred[hc_mask], target_names=['DOWN', 'NEUTRAL', 'UP']))\n    \n    plt.figure(figsize=(6, 5))\n    sns.heatmap(confusion_matrix(y_test_seq[hc_mask], y_pred[hc_mask]), annot=True, fmt='d', cmap='Blues')\n    plt.title('High Confidence Confusion Matrix')\n    plt.show()"]},
+    {"cell_type": "markdown", "metadata": {}, "source": ["## 6. Save"]},
+    {"cell_type": "code", "execution_count": None, "metadata": {}, "outputs": [], "source": ["model.save('../models/cnn_lstm_model.keras')\nprint('✓ Saved')"]},
+]
+
+save_notebook(create_notebook(cnn_lstm_cells), "BTC_Oracle_CNN_LSTM.ipynb")
+
+print("\n" + "="*60)
+print("✅ ALL NOTEBOOKS COMPLETED!")
+print("="*60)
+print("\nUpdated notebooks:")
+print("  - BTC_Oracle_GRU.ipynb (COMPLETE)")
+print("  - BTC_Oracle_CNN_LSTM.ipynb (COMPLETE)")
+print("\nAll notebooks now have:")
+print("  ✓ Full data loading")
+print("  ✓ Preprocessing")
+print("  ✓ Model architecture")
+print("  ✓ Training")
+print("  ✓ Evaluation")
+print("  ✓ High confidence analysis")
+print("  ✓ Visualizations")
+print("  ✓ Model saving")
