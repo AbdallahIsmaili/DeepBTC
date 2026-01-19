@@ -1,7 +1,7 @@
 # api/feature_engine.py - OPTIMIZED VERSION (95%+ data retention)
 
 import pandas as pd
-import pandas_ta as ta
+import talib as ta
 import os
 import numpy as np
 from datetime import datetime
@@ -128,24 +128,24 @@ class EnhancedFeatureEngine:
         df['volume_ratio'] = df['Volume'] / df['volume_ma_24h']
         df['volume_momentum'] = df['Volume'] / df['Volume'].shift(24) - 1
         
-        # Technical Indicators using pandas_ta
-        df.ta.vwap(append=True)
-        df.ta.sma(length=20, append=True)
-        df.ta.sma(length=50, append=True)
-        df.ta.sma(length=200, append=True)
-        df.ta.ema(length=12, append=True)
-        df.ta.ema(length=26, append=True)
-        df.ta.macd(append=True)
-        df.ta.rsi(length=14, append=True)
-        df.ta.rsi(length=21, append=True)
-        df.ta.stoch(append=True)
-        df.ta.atr(length=14, append=True)
-        df.ta.bbands(length=20, append=True)
-        df.ta.adx(length=14, append=True)
-        df.ta.cci(length=20, append=True)
-        df.ta.willr(length=14, append=True)
-        df.ta.mfi(length=14, append=True)
-        df.ta.obv(append=True)
+        # Technical Indicators using talib
+        # Note: VWAP not available in talib, skipping
+        df['SMA_20'] = ta.SMA(df['Close'], timeperiod=20)
+        df['SMA_50'] = ta.SMA(df['Close'], timeperiod=50)
+        df['SMA_200'] = ta.SMA(df['Close'], timeperiod=200)
+        df['EMA_12'] = ta.EMA(df['Close'], timeperiod=12)
+        df['EMA_26'] = ta.EMA(df['Close'], timeperiod=26)
+        df['MACD_12_26_9'], df['MACDs_12_26_9'], df['MACDh_12_26_9'] = ta.MACD(df['Close'])
+        df['RSI_14'] = ta.RSI(df['Close'], timeperiod=14)
+        df['RSI_21'] = ta.RSI(df['Close'], timeperiod=21)
+        df['STOCHk_14_3_3'], df['STOCHd_14_3_3'] = ta.STOCH(df['High'], df['Low'], df['Close'])
+        df['ATR_14'] = ta.ATR(df['High'], df['Low'], df['Close'], timeperiod=14)
+        df['BBL_20_2.0'], df['BBM_20_2.0'], df['BBU_20_2.0'] = ta.BBANDS(df['Close'], timeperiod=20)
+        df['ADX_14'] = ta.ADX(df['High'], df['Low'], df['Close'], timeperiod=14)
+        df['CCI_20_0.015'] = ta.CCI(df['High'], df['Low'], df['Close'], timeperiod=20)
+        df['WILLR_14'] = ta.WILLR(df['High'], df['Low'], df['Close'], timeperiod=14)
+        df['MFI_14'] = ta.MFI(df['High'], df['Low'], df['Close'], df['Volume'], timeperiod=14)
+        df['OBV'] = ta.OBV(df['Close'], df['Volume'])
         
         # Price position relative to MAs
         df['price_to_sma20'] = df['Close'] / df['SMA_20'] - 1
